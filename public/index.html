@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Scoreboard</title>
+<style>
+    body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        font-family: Arial, sans-serif;
+        background-color: #282c34;
+        color: #61dafb;
+        text-align: center;
+    }
+    .score-container {
+        margin: 0 50px;
+        cursor: pointer;
+        user-select: none;
+    }
+    .score {
+        font-size: 6em;
+        display: block; /* Ensures that the label is on a new line */
+        transition: transform 0.3s;
+        transform: translate3d(0,0,0); /* Potentially force hardware acceleration  */
+    }
+    .label {
+        font-size: 1.5em;
+    }
+
+
+    .score-container {
+        /* Make the container relatively positioned */
+        position: relative;
+        margin: 0 50px;
+        cursor: pointer;
+        user-select: none;
+        justify-content: center;
+        align-items: center;
+    }
+    .score {
+        /* Use absolute positioning for the score */
+        position: absolute;
+        justify-content: center;
+        align-items: center;
+        font-size: 6em;
+        display: block; /* Ensures that the label is on a new line */
+        transition: transform 0.3s;
+        transform: translate3d(0,0,0); /* Potentially force hardware acceleration  */
+        opacity: 1; /* Ensure score is visible */
+    }
+    .label {
+        /* Push the label down to make room for the absolutely positioned score */
+        margin-top: 130px; /* Adjust as needed based on the size of .score */
+        font-size: 1.5em;
+        position: relative;
+    }
+
+    /* Animation for old score: Explosion fade-out */
+    @keyframes explodeOut {
+      0% {
+        transform: scale(1);
+        opacity: 1; /* Ensure we start hidden */
+      }
+      100% {
+        transform: scale(1.5); 
+        opacity: 0;
+      }
+    }
+
+    .explode-out {
+      animation: explodeOut 0.2s cubic-bezier(1, 0, .75, 1); /* Fast in, slow out */
+    }
+
+    /* Animation for new score: Fade-in and subtle bounce */
+    @keyframes fadeInBounce {
+      0% {
+        transform: scale(0.8);
+        opacity: 0;
+      }
+      60% {
+        transform: scale(1.1); 
+        opacity: 1;
+      }
+      100% {
+        transform: scale(1); 
+      }
+    }
+
+    .fade-in-bounce {
+      animation: fadeInBounce 0.2s cubic-bezier(0, .25, 0, 1); /* Slow in, fast out */
+    }
+
+    .temp-score {
+        /* Position the temporary score exactly over the original score */
+        position: absolute;
+        top: 0;
+        left: 0;
+        margin: 0;
+    }
+    
+
+</style>
+</head>
+<body>
+<div class="score-container" id="p1Container" onclick="animateScore('P1')">
+    <span class="score" id="scoreP1">0</span>
+    <div class="label">P1</div>
+</div>
+<div class="score-container" id="p2Container" onclick="animateScore('P2')">
+    <span class="score" id="scoreP2">0</span>
+    <div class="label">P2</div>
+</div>
+
+<audio id="scoreSound" src="score-increase.mp3" preload="auto"></audio>
+
+<script>
+     // Global variables for tracking scores
+    let scoreP1 = 0;
+    let scoreP2 = 0;
+
+
+    
+    // WebSocket and message handling 
+    const ws = new WebSocket('ws://' + window.location.host);
+
+    function playScoreSound() {
+        const sound = document.getElementById('scoreSound');
+        sound.currentTime = 0; // Rewind to the start
+        sound.play();
+    }
+
+    ws.onopen = function() {
+        console.log('WebSocket connection established');
+    };
+
+    ws.onmessage = function(event) {
+    console.log('Message received:', event.data);
+    const data = JSON.parse(event.data);
+
+    // Update the scores with the latest values from the server
+    scoreP1 = data.scoreP1; // Store server-sent scores  
+    scoreP2 = data.scoreP2; // in global variables
+    document.getElementById('scoreP1').textContent = scoreP1;
+    document.getElementById('scoreP2').textContent = scoreP2;
+
+    // Animation handling
+    let scoreIdToAnimate;
+    if (data.sensorId === "sensor1") {
+      playScoreSound();
+        scoreIdToAnimate = 'scoreP1'; 
+    } else if (data.sensorId === "sensor2") {
+      playScoreSound();
+        scoreIdToAnimate = 'scoreP2'; 
+    }
+
+    const scoreElement = document.getElementById(scoreIdToAnimate);
+        const oldScore = scoreElement.textContent;
+        const newScore = scoreIdToAnimate === 'scoreP1' ? scoreP1 : scoreP2;
+
+        // Create a temporary element for the old score
+        const tempScore = document.createElement('div');
+        tempScore.textContent = oldScore;
+        tempScore.className = scoreElement.className; // Copy classes from the original score
+        tempScore.classList.add('temp-score', 'explode-out'); // Add temporary score styles and animation
+        scoreElement.parentNode.appendChild(tempScore); // Append it to the container
+        
+        // Remove the temporary score after the animation
+        setTimeout(() => { 
+            tempScore.remove();
+        }, 200); 
+
+        // Set new score and apply fade-in bounce animation
+        scoreElement.textContent = newScore;
+        scoreElement.classList.add('fade-in-bounce');
+        setTimeout(() => {
+            scoreElement.classList.remove('fade-in-bounce'); // Remove the class so it can be re-applied next time
+        }, 200);
+    };
+
+
+
+</script>
+</body>
+</html>
